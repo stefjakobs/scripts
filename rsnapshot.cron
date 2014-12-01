@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Copyright (c) 2014 Stefan Jakobs <project AT localside.net>
+#####################################################################
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+######################################################################
+
+RSNAPSHOT="/usr/bin/rsnapshot"
+# get period from first parameter or extract it from program name
+PERIOD=${1:-"${0##*.}"}
+SNAPSHOT_ROOT="/.snapshots"
+declare -i CNT=0
+
+while mount | grep $SNAPSHOT_ROOT >/dev/null ; do 
+  echo "schlafe ..."
+  CNT=$CNT+1
+  sleep 5m
+  if (( $CNT > 5 )); then exit; fi;
+done
+mount $SNAPSHOT_ROOT
+$RSNAPSHOT $PERIOD
+sleep 30s
+umount $SNAPSHOT_ROOT

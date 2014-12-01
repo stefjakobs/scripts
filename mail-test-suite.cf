@@ -1,0 +1,21 @@
+good_rcpts[testing]='
+  st000001@stud.example.com
+  max.mustermann@test.example.com
+  root@mx1.example.com
+  postmaster@mx1.example.com
+  nagios@mx1.example.com
+  spam@mx1.example.com
+  ham@mx1.example.com
+  myuser@example.org@example.com
+  root@localhost
+  root@localhost.example.com
+'
+
+bad_rcpts[testing]='
+  auser@web.de
+  auser@web.de@mx1.example.com
+'
+
+bad_senders[testing]=''
+
+good_senders[testing]='postmaster@example.com'

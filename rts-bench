@@ -1,0 +1,45 @@
+#!/bin/bash
+# create a benchmark archive with a detailed drive test of this system
+
+if [[ "$1" = "" || ! -e "$1" ]]; then
+	echo "Please specify a valid block device to be tested."
+	exit 0
+else
+	echo "This will destroy all your data on $1 ! Please be sure only to benchmark"
+	echo "a valid device!"
+	read -n1 -p "Continue? (y/n)"
+	echo
+	[[ $REPLY = [yY] ]] && echo "Benchmark starting now. Please be patient. Expected finish time is in 72 minutes." || { echo "Benchmarking aborted."; exit 1; }
+fi
+
+DATESTAMP="`date +%Y%m%d-%H%M`"
+
+rm -rf /tmp/rts &> /dev/null  
+mkdir -p /tmp/rts &> /dev/null
+
+echo -e "\n\n### System date" >> /tmp/rts/sysinfo 2>&1
+date >> /tmp/rts/sysinfo 2>&1
+
+echo "Generating RTSos Benchmark Support Package"
+echo "====================================================="
+echo "Please wait, while the test are running"
+echo "After generation, please send the archive"
+echo "   ---> /tmp/rts-bench-${DATESTAMP}.tar.bz2"
+echo "to RisingTide per mail via sla@risingtidesystems.com"
+
+##### System information #####
+
+for duration in 60; do 
+	for test_type in read randread write randwrite; do
+
+		echo -e "\n\n### Duration: ${duration} --- Test: ${test_type}" >> /tmp/rts/sysinfo 2>&1
+		fio --filename=$1 --direct=1 --rw=${test_type} --bs=512 --size=DEVICESIZE --runtime=${duration} --iodepth=32 --numjobs=4 --ioengine=libaio --name=file1 >> /tmp/rts/benchinfo
+		fio --filename=$1 --direct=1 --rw=${test_type} --bs=4096 --size=DEVICESIZE --runtime=${duration} --iodepth=32 --numjobs=4 --ioengine=libaio --name=file1 >> /tmp/rts/benchinfo
+		fio --filename=$1 --direct=1 --rw=${test_type} --bs=1048576 --size=DEVICESIZE --runtime=${duration} --iodepth=32 --numjobs=4 --ioengine=libaio --name=file1 >> /tmp/rts/benchinfo
+
+	done
+done
+
+#tar -cf /tmp/rts-bench-${DATESTAMP}.tar /tmp/rts &> /dev/null
+#bzip2 -9 /tmp/rts-bench-${DATESTAMP}.tar &> /dev/null 
+#rm -rf /tmp/rts &> /dev/null  
