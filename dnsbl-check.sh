@@ -75,6 +75,7 @@ dnsrbl.swinog.ch
 bogons.cymru.com
 bl.deadbeef.com           
 blackholes.five-ten-sg.com
+cidr.bl.mcafee.com
 rbl.orbitrbl.com
 rbl.softworking.com       
 dyna.spamrats.com
