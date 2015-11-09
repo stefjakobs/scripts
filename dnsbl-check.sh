@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # 
 # dnsbl-check.sh
 #####################################################################
@@ -9,7 +9,7 @@
 # Please send all comments, suggestions, bug reports,
 #    etc, to logwatch at localside.net.
 #####################################################################
-# Copyright (c) 2008-2014 Stefan Jakobs
+# Copyright (c) 2008-2015 Stefan Jakobs
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
