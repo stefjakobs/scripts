@@ -38,9 +38,14 @@ MAIL_RCPT="postmaster@localhost"
 # relays.ordb.org       # not maintained any more; all positive
 # cbl.abuseat.org       # is contained in zen.spamhaus.org
 # *.dsbl.org            # not maintained any more
-# dynablock.njabl.org   # not maintained and will be shutdown soon
+# dynablock.njabl.org   # not maintained and is down
+# combined.njabl.org    # not maintained and is down
 # combined-hib.dnsiplists.completewhois.com     # dead; all positive
-# *.ahbl.org (dnsbl, rhsbl, ircbl, tor) # not maintained any more;
+# dnsbl.ahbl.org        # not maintained any more; all positive
+# rhsbl.ahbl.org        # not maintained any more; all positive
+# intercept.datapacket.net # not maintained any more; all positive
+# ircbl.ahbl.org        # not maintained any more; all positive
+# tor.ahbl.org          # not maintained any more; all positive
 
 # info
 # combined.njabl.org == dnsbl.njabl.org
@@ -51,6 +56,7 @@ MAIL_RCPT="postmaster@localhost"
 # dnsrbl.swinog.ch 
 # rbl.orbitrbl.com
 # rbl.softworking.com
+# ubl.unsubscore.com
 # dyndns.rbl.jp
 # hbl.atlbl.net
 # dnsbl.cyberlogic.net
@@ -69,40 +75,41 @@ MAIL_RCPT="postmaster@localhost"
 # dsn.rfc-ignorant.org
 # fulldom.rfc-ignorant.org
 
+# disabled due to timeouts
+# bl.tiopan.com
+
 DNSBLlist=`grep -v ^# <<!
 combined.abuse.ch 
 dnsrbl.swinog.ch  
 bogons.cymru.com
 bl.deadbeef.com           
 blackholes.five-ten-sg.com
-cidr.bl.mcafee.com
+ixhash.junkemailfilter.com
 rbl.orbitrbl.com
 rbl.softworking.com       
 dyna.spamrats.com
 noptr.spamrats.com
 spam.spamrats.com
 psbl.surriel.com          
-#bl.tiopan.com
+ubl.unsubscore.com
 dialups.visi.com          
 bl.blocklist.de
 dnsbl.inps.de             
 relays.bl.kundenserver.de     
 no-more-funn.moensted.dk  
 dev.null.dk               
-#bl.technovision.dk        
+bl.technovision.dk        
 st.technovision.dk        
 spamsources.fabel.dk      
 db.wpbl.info
 all.rbl.jp                    
 dyndns.rbl.jp                 
-#rbl.atlbl.net
-#hbl.atlbl.net
+rbl.atlbl.net
+hbl.atlbl.net
 dnsbl.cyberlogic.net
-intercept.datapacket.net
 spamtrap.drbl.drand.net
 truncate.gbudb.net
 blackholes.intersil.net
-ixhash.junkemailfilter.com
 generic.ixhash.net
 hosteurope.ixhash.net
 dnsbl.kempt.net
@@ -124,11 +131,11 @@ dnsbl-3.uceprotect.net
 virbl.dnsbl.bit.nl
 l2.apews.org
 ips.backscatterer.org
+bb.barracudacentral.org
 mail-abuse.blacklist.jippg.org
 dnsbl.dronebl.org
-#any.dnsl.ipquery.org
+any.dnsl.ipquery.org
 blackholes.mail-abuse.org
-combined.njabl.org
 dnsbl.proxybl.org
 access.redhawk.org
 dsn.rfc-ignorant.org
@@ -140,6 +147,7 @@ dul.ru
 
 DNSColorList=`grep -v ^# <<!
 hostkarma.junkemailfilter.com
+rep.mailspike.net
 list.quorum.to
 !`
 

@@ -43,6 +43,12 @@ ip6tables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
 # Ueber den Tunnel eingehenden Bittorrent‐Traffic erlauben
 #ip6tables -A FORWARD -i sixxs -p tcp ‐d 2a01:198:514::1 ‐‐dport 33600:33604 -j ACCEPT
 
+# Block 6to4 prefix
+ip6tables -A OUTPUT -d 2002::/16 -j DROP
+
+# Block Toredo
+ip6tables -A OUTPUT -d 2001::/32 -j DROP
+
 # Alles andere ist verboten
 ip6tables -P INPUT DROP
 ip6tables -P FORWARD DROP

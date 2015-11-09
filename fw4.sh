@@ -44,6 +44,13 @@ iptables -I FORWARD -p icmp -j ACCEPT
 iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
+# Block 6to4 per protocol
+iptables -A INPUT -p 41 -j DROP
+
+# Block 6to4 IPv4 Anycast
+iptables -A INPUT -d 192.88.99.1 -j DROP
+iptables -A INPUT -s 192.88.99.1 -j DROP
+
 # Alles andere ist verboten
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
