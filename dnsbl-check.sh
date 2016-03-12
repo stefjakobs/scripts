@@ -159,9 +159,6 @@ resl.emailreg.org
 !`
 
 ## variables
-#declare -A results_black
-#declare -A results_white
-#declare -A results_color
 declare -i short=0
 declare -i warnings=0
 declare -i debug=0
@@ -203,21 +200,12 @@ query() {
    local result="$(dig +short ${3}.${2} | tr '\n' ' ')"
    if [ "$warnings" -eq 1 ]; then
       if [[ "$result" =~ connection\ timed\ out ]]; then
-         echo "Connection timed out: $i"
+         echo "Connection timed out: $2"
       fi
    fi
 
    if [ -n "$result" ]; then
-      if [ "$1" == 'black' ]; then
-         #results_black["$2"]="$result"
-         echo "$2 $result" >> $file_black
-      elif [ "$1" == 'white' ]; then
-         #results_white["$2"]="$result"
-         echo "$2 $result" >> $file_white
-      elif [ "$1" == 'color' ]; then
-         #results_color["$2"]="$result"
-         echo "$2 $result" >> $file_color
-      fi
+      echo "$1 $2 $result" >> $results_file
    fi
    if [ "$debug" -eq 1 ]; then
       echo "debug: query: ${3}.${2} -> $result"
@@ -251,6 +239,7 @@ print_warn() {
    echo
 }
 
+## MAIN ##
 while getopts ':BCHWi:dpsw' opt; do
   case $opt in
     B)
@@ -296,14 +285,11 @@ fi
 ip_arpa=$(convertIP $ip)
 
 ## create temp files
-file_black="$(mktemp)"
-file_white="$(mktemp)"
-file_color="$(mktemp)"
+results_file="$(mktemp)"
+trap "rm -f $results_file" EXIT
 
 if [ "$debug" -eq 1 ]; then
-   echo "tmp file blacklist: $file_black"
-   echo "tmp file whitelist: $file_white"
-   echo "tmp file colorlist: $file_color"
+   echo "tmp results file: $results_file"
 fi
 
 # query lists and populate results hashes
@@ -327,74 +313,38 @@ wait
 
 
 ## process results
-while read l r; do
-    if [[ "$r" =~ 127\.0\.0\.1 ]]; then
-       white="$white $l"
-    elif [[ "$r" =~ 127\.0\.0\.2 ]]; then
-       black="$black $l"
-    elif [[ "$r" =~ 127\.0\.0\.3 ]]; then
-       yellow="$yellow $l"
-    elif [[ "$r" =~ 127\.0\.0\.4 ]]; then
-       brown="$brown $l"
-    elif [[ "$r" =~ 127\.0\.0\.4 ]]; then
-       nobl="$l $nobl"
-    else
-       other="$l $other"
-    fi
-done < $file_color
-while read l r; do
-    if [ -z "$r" ]; then
-       true #ignore
-    elif [[ "$r" =~ ^127\.0\.0\. ]]; then
-       black="$l $black"
-    else
-       other="$l $other"
-    fi
-done < $file_black
-while read l r ; do
-    if [ -z "$r" ]; then
-       true # ignore
-    elif [[ "$r" =~ ^127\.0\.[0-9]+\. ]]; then
-       white="$l $white"
-    else
-       other="$l $other"
-    fi
-done < $file_white
-#for l in ${!results_color[@]}; do
-#    if [ -z "${results_color[$l]}" ]; then
-#       true #ignore
-#    elif [[ "${results_color[$l]}" =~ 127\.0\.0\.1 ]]; then
-#       white="$white $l"
-#    elif [[ "${results_color[$l]}" =~ 127\.0\.0\.2 ]]; then
-#       black="$black $l"
-#    elif [[ "${results_color[$l]}" =~ 127\.0\.0\.3 ]]; then
-#       yellow="$yellow $l"
-#    elif [[ "${results_color[$l]}" =~ 127\.0\.0\.4 ]]; then
-#       brown="$brown $l"
-#    elif [[ "${results_color[$l]}" =~ 127\.0\.0\.4 ]]; then
-#       nobl="$l $nobl"
-#    else
-#       other="$l $other"
-#    fi
-#done
-#for l in ${!results_black[@]}; do
-#    if [ -z "${results_black[$l]}" ]; then
-#       true #ignore
-#    elif [[ "${results_black[$l]}" =~ ^127\.0\.0\. ]]; then
-#       black="$l $black"
-#    else
-#       other="$l $other"
-#    fi
-#done
-#for l in ${!results_white[@]}; do
-#    if [ -z "${results_white[$l]}" ]; then
-#       true # ignore
-#    elif [[ "${results_white[$l]}" =~ ^127\.0\.[0-9]+\. ]]; then
-#       white="$l $white"
-#    else
-#       other="$l $other"
-#    fi
-#done
+while read type list result; do
+   if [ "$type" == 'color' ]; then
+      if [[ "$result" =~ 127\.0\.0\.1 ]]; then
+         white="$list $white"
+      elif [[ "$result" =~ 127\.0\.0\.2 ]]; then
+         black="$list $black"
+      elif [[ "$result" =~ 127\.0\.0\.3 ]]; then
+         yellow="$list $yellow"
+      elif [[ "$result" =~ 127\.0\.0\.4 ]]; then
+         brown="$list $brown"
+      elif [[ "$result" =~ 127\.0\.0\.4 ]]; then
+         nobl="$list $nobl"
+      else
+         other="$list $other"
+      fi
+   elif [ "$type" == 'black' ]; then
+      if [[ "$result" =~ ^127\.0\.0\. ]]; then
+         black="$list $black"
+      else
+         other="$list $other"
+      fi
+   elif [ "$type" == 'white' ]; then
+      if [[ "$result" =~ ^127\.0\.[0-9]+\. ]]; then
+         white="$list $white"
+      else
+         other="$list $other"
+      fi
+   else
+      echo "error: unknown type $type"
+   fi
+done < $results_file
+
 
 ## generate output
 if [ "$short" -eq 1 ]; then
@@ -437,10 +387,3 @@ else
    exit 1
 fi
 
-echo "Black:"
-cat $file_black
-echo "white:"
-cat $file_white
-echo "color:"
-cat $file_color
-rm "$file_black" "$file_white" "$file_color"
