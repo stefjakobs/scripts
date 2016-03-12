@@ -170,8 +170,8 @@ declare -i colorlist=0
 
 usage()
 {
-   echo "Usage: $0 -i <ip addr> [-H| [-B] [-C] [-W]]|-p [-d] [-w]"
-   echo " -i <ip addr>   query this ip address"
+   echo "Usage: $0 [[-i <ip addr>] [-H| [-B] [-C] [-W]] [-d] [-w]]|[-p]"
+   echo " -i <ip addr>   query this ip address (maybe used multiple times)"
    echo " -H             query all list"
    echo " -B             query only black lists"
    echo " -C             query only colored lists"
@@ -257,7 +257,7 @@ while getopts ':BCHWi:dpsw' opt; do
       whitelist=1
       ;;
     i)
-      ip=$OPTARG
+      ip_list="$OPTARG $ip_list"
       ;;
     d)
       debug=1
@@ -277,12 +277,10 @@ while getopts ':BCHWi:dpsw' opt; do
   esac
 done
 
-# check options
-if [ -z "$ip" ]; then
-   echo "error: no ip address given"
-   usage
+# check options and set defaults
+if [ -z "$ip_list" ]; then
+   ip_list="$(ip -4 -o addr show scope global | awk '{gsub(/\/.*/, " ",$4); print $4}' | tr '\n' ' ')"
 fi
-ip_arpa=$(convertIP $ip)
 
 ## create temp files
 results_file="$(mktemp)"
@@ -293,23 +291,25 @@ if [ "$debug" -eq 1 ]; then
 fi
 
 # query lists and populate results hashes
-if [ "$colorlist" -eq 1 ]; then
-   for l in $DNSColorList; do
-      query 'color' $l $ip_arpa &
-   done
-fi
-
-if [ "$blacklist" -eq 1 ]; then
-  for l in $DNSBLlist; do
-      query 'black' $l $ip_arpa &
-  done
-fi
-if [ "$whitelist" -eq 1 ]; then
-  for l in $DNSWLlist; do
-      query 'white' $l $ip_arpa &
-  done
-fi
-wait
+for ip in $ip_list; do
+   ip_arpa=$(convertIP $ip)
+   if [ "$colorlist" -eq 1 ]; then
+      for l in $DNSColorList; do
+         query 'color' $l $ip_arpa &
+      done
+   fi
+   if [ "$blacklist" -eq 1 ]; then
+     for l in $DNSBLlist; do
+         query 'black' $l $ip_arpa &
+     done
+   fi
+   if [ "$whitelist" -eq 1 ]; then
+     for l in $DNSWLlist; do
+         query 'white' $l $ip_arpa &
+     done
+   fi
+   wait
+done
 
 
 ## process results
