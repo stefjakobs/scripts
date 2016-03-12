@@ -165,16 +165,21 @@ declare -i debug=0
 declare -i blacklist=0
 declare -i whitelist=0
 declare -i colorlist=0
+declare -i timeout=3
+declare -i retry=2
 
 ## functions
 
 usage()
 {
    echo "Usage: $0 [[-i <ip addr>] [-H| [-B] [-C] [-W]] [-d] [-w]]|[-p]"
+   echo "                    [-T <# sec>] [-R <# times>]"
    echo " -i <ip addr>   query this ip address (maybe used multiple times)"
    echo " -H             query all list"
    echo " -B             query only black lists"
    echo " -C             query only colored lists"
+   echo " -T             set dns query timeout (default 3 seconds)"
+   echo " -R             set dns query retries (default 2 times)"
    echo " -W             query only white lists"
    echo " -d             enable debug output"
    echo " -p             print list of DNSBLs"
@@ -193,11 +198,13 @@ convertIP()
 
 # usage: query listtype dnsbl_host rev_ip_addr
 query() {
+   dig_options="+time=${timeout} +tries=${retry} +retry=${retry} +short"
+
    if [ -z "$3" ]; then
       echo "error (query): not enough parameters"
       return 1
    fi
-   local result="$(dig +short ${3}.${2} | tr '\n' ' ')"
+   local result="$(dig ${dig_options} ${3}.${2} | tr '\n' ' ')"
    if [ "$warnings" -eq 1 ]; then
       if [[ "$result" =~ connection\ timed\ out ]]; then
          echo "Connection timed out: $2"
@@ -208,7 +215,7 @@ query() {
       echo "$1 $2 $result" >> $results_file
    fi
    if [ "$debug" -eq 1 ]; then
-      echo "debug: query: ${3}.${2} -> $result"
+      echo "debug: query: ${3}.${2} -> $result (with $dig_options)"
    fi
 }
 
@@ -240,7 +247,7 @@ print_warn() {
 }
 
 ## MAIN ##
-while getopts ':BCHWi:dpsw' opt; do
+while getopts ':BCHR:T:Wi:dpsw' opt; do
   case $opt in
     B)
       blacklist=1
@@ -255,6 +262,12 @@ while getopts ':BCHWi:dpsw' opt; do
       ;;
     W)
       whitelist=1
+      ;;
+    R)
+      retry="$OPTARG"
+      ;;
+    T)
+      timeout="$OPTARG"
       ;;
     i)
       ip_list="$OPTARG $ip_list"
@@ -280,6 +293,14 @@ done
 # check options and set defaults
 if [ -z "$ip_list" ]; then
    ip_list="$(ip -4 -o addr show scope global | awk '{gsub(/\/.*/, " ",$4); print $4}' | tr '\n' ' ')"
+fi
+if ! [ "$timeout" -gt 0 ]; then
+   echo "error: timout must be number greater than zero"
+   exit 1
+fi
+if ! [ "$retry" -gt 0 ]; then
+   echo "error: retry must be number greater than zero"
+   exit 1
 fi
 
 ## create temp files
