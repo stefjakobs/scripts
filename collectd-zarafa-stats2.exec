@@ -1,0 +1,121 @@
+#!/bin/bash
+
+# Copyright (c) 2015 Stefan Jakobs <projects@localside.net>
+
+ZARAFA_STATS_SESSION='/usr/bin/zarafa-stats --session'
+ZARAFA_STATS_SYSTEM='/usr/bin/zarafa-stats --system'
+
+GENERAL='yes'
+LICENSE='yes'
+CACHE='yes'
+SQL='yes'
+SESSIONS='yes'
+LDAP='yes'
+
+HOSTNAME="${COLLECTD_HOSTNAME:-$(hostname)}"
+INTERVAL="${COLLECTD_INTERVAL:-10}"
+declare -A stats
+
+while sleep $INTERVAL; do
+
+    TMPFILE_SESSION=`mktemp`
+
+    $ZARAFA_STATS_SESSION > $TMPFILE_SESSION
+    SYSTEM_OUT="$($ZARAFA_STATS_SYSTEM)"
+
+    ## create an associative array with each stats item as key:
+    while read line ; do
+        item=$(echo "$line" | awk '{ print $1 }')
+        value=$(echo "$line" | awk '{ print $NF }')
+        stats[$item]=$value
+    done <<< "$(echo "$SYSTEM_OUT" | tail -n +3)"
+
+    if [ "$GENERAL" = 'yes' ]; then
+        TOTAL=`egrep "0x674F001E|0x6701001E" $TMPFILE_SESSION | awk {'print $2'} | sed '$!N;s/\n/ /' | sort -n | egrep -v "SYSTEM" | uniq | wc -l`
+        OUTLOOK=`egrep "0x6750001E|0x6701001E" $TMPFILE_SESSION | awk {'print $2'} | sed '$!N;s/\n/ /' | sort -n | uniq | egrep "OUTLOOK.EXE" | wc -l`
+        GATEWAY=`egrep "0x6750001E|0x6701001E" $TMPFILE_SESSION | awk {'print $2'} | sed '$!N;s/\n/ /' | sort -n | uniq | egrep "zarafa-gateway" | wc -l`
+        echo "PUTVAL $HOSTNAME/zarafa/users-total interval=$INTERVAL N:$TOTAL"
+        echo "PUTVAL $HOSTNAME/zarafa/users-outlook interval=$INTERVAL N:$OUTLOOK"
+        echo "PUTVAL $HOSTNAME/zarafa/users-gateway interval=$INTERVAL N:$GATEWAY"
+
+        echo "PUTVAL $HOSTNAME/zarafa/derive-soap_request interval=$INTERVAL N:${stats[soap_request]:-0}"
+        echo "PUTVAL $HOSTNAME/zarafa/derive-connections interval=$INTERVAL N:${stats[connections]:-0}"
+        echo "PUTVAL $HOSTNAME/zarafa/total_time_in_ms-response_time interval=$INTERVAL N:${stats[response_time]:-0}"
+        echo "PUTVAL $HOSTNAME/zarafa/total_time_in_ms-processing_time interval=$INTERVAL N:${stats[processing_time]:-0}"
+
+        echo "PUTVAL $HOSTNAME/zarafa/queue_length-queuelen interval=$INTERVAL N:${stats[queuelen]:-0}"
+        queueage="$(echo "1000*${stats[queueage]:-0}" | bc)"
+        echo "PUTVAL $HOSTNAME/zarafa/queue_length-queueage interval=$INTERVAL N:${queueage}"
+        echo "PUTVAL $HOSTNAME/zarafa/threads-threads interval=$INTERVAL N:${stats[threads]:-0}"
+        echo "PUTVAL $HOSTNAME/zarafa/threads-threads_idle interval=$INTERVAL N:${stats[threads_idle]:-0}"
+    fi
+    if [ "$LICENSE" = 'yes' ]; then
+        echo "PUTVAL $HOSTNAME/zarafa/gauge-license_max interval=$INTERVAL N:${stats[license_max]:-0}"
+        echo "PUTVAL $HOSTNAME/zarafa/gauge-license_configured interval=$INTERVAL N:${stats[license_configured]:-0}"
+    fi
+
+    if [ "$CACHE" = 'yes' ]; then
+        for x in obj store acl quota uquota extern userid abinfo server cell ;do
+            req="cache_${x}_req"
+            hit="cache_${x}_hit"
+            ratio="cache_${x}_hitratio"
+            if [ "${stats[$req]}" -ne 0 ]; then
+                let stats[$ratio]=${stats[$hit]}*100/${stats[$req]}
+            fi
+            echo "PUTVAL $HOSTNAME/zarafa/cache_ratio-${ratio} interval=$INTERVAL N:${stats[$ratio]:-0}"
+        done
+
+        for cmd in cache_obj_size cache_store_size cache_acl_size cache_quota_size cache_uquota_size \
+                   cache_extern_size cache_userid_size cache_abinfo_size cache_server_size cache_cell_size \
+                   cache_index1_size cache_index2_size ; do
+            echo "PUTVAL $HOSTNAME/zarafa/cache_size-${cmd} interval=$INTERVAL N:${stats[$cmd]:-0}"
+        done
+        for cmd in cache_obj_items cache_store_items cache_acl_items cache_quota_items cache_uquota_items \
+                   cache_extern_items cache_userid_items cache_abinfo_items cache_server_items cache_cell_items \
+                   cache_index1_items cache_index2_items ; do
+            echo "PUTVAL $HOSTNAME/zarafa/memcached_items-${cmd} interval=$INTERVAL N:${stats[$cmd]:-0}"
+        done
+        for cmd in cache_obj_hit cache_store_hit cache_acl_hit cache_quota_hit cache_uquota_hit \
+                   cache_extern_hit cache_userid_hit cache_abinfo_hit cache_server_hit cache_cell_hit \
+                   cache_index1_hit cache_index2_hit ; do
+            echo "PUTVAL $HOSTNAME/zarafa/cache_operation-${cmd} interval=$INTERVAL N:${stats[$cmd]:-0}"
+        done
+        for cmd in cache_obj_req cache_store_req cache_acl_req cache_quota_req cache_uquota_req \
+                   cache_extern_req cache_userid_req cache_abinfo_req cache_server_req cache_cell_req \
+                   cache_index1_req cache_index2_req ; do
+            echo "PUTVAL $HOSTNAME/zarafa/cache_operation-${cmd} interval=$INTERVAL N:${stats[$cmd]:-0}"
+        done
+    fi
+
+    if [ "$SESSIONS" = 'yes' ]; then
+        echo "PUTVAL $HOSTNAME/zarafa/total_sessions-sessions interval=$INTERVAL N:${stats[sessions]:-0}"
+        echo "PUTVAL $HOSTNAME/zarafa/total_sessions-sessions_created interval=$INTERVAL N:${stats[sessions_created]:-0}"
+        echo "PUTVAL $HOSTNAME/zarafa/total_sessions-sessions_deleted interval=$INTERVAL N:${stats[sessions_deleted]:-0}"
+        echo "PUTVAL $HOSTNAME/zarafa/total_sessions-sessions_timeout interval=$INTERVAL N:${stats[sessions_timeout]:-0}"
+    fi
+
+    if [ "$SQL" = 'yes' ]; then
+        for cmd in sql_connect sql_select sql_insert sql_update sql_delete sql_connect_fail \
+                   sql_insert_fail sql_update_fail sql_delete_fail ; do
+            echo "PUTVAL $HOSTNAME/zarafa/mysql_commands-${cmd} interval=$INTERVAL N:${stats[${cmd}]:-0}"
+        done
+    fi
+    
+    if [ "$LDAP" = 'yes' ]; then
+        for cmd in ldap_connect ldap_reconnect ldap_connect_fail  ldap_auth ldap_auth_fail \
+                   ldap_search ldap_search_fail ; do
+            echo "PUTVAL $HOSTNAME/zarafa/total_connections-${cmd} interval=$INTERVAL N:${stats[${cmd}]:-0}"
+        done
+        for cmd in ldap_connect_time ldap_auth_time ldap_search_time ; do 
+            echo "PUTVAL $HOSTNAME/zarafa/total_time_in_ms-${cmd} interval=$INTERVAL N:${stats[${cmd}]:-0}"
+        done
+        for cmd in ldap_max_connect ldap_max_auth ldap_max_search ; do 
+            echo "PUTVAL $HOSTNAME/zarafa/total_time_in_ms-${cmd} interval=$INTERVAL N:${stats[${cmd}]:-0}"
+        done
+        echo "PUTVAL $HOSTNAME/zarafa/timeleft-ldap_avg_auth interval=$INTERVAL N:${stats[ldap_avg_auth]:-0}"
+    fi
+
+    rm $TMPFILE_SESSION
+
+done
+

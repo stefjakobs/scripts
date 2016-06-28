@@ -18,6 +18,7 @@ declare -A stats_time_taken
 declare -A stats_bytes_estimated
 declare -A stats_bytes_in_backup
 declare -A stats_bytes_received
+declare -i stats_jobs_running
 
 if ! [ -x "$backupdir" ]; then
   echo "error: can not read $backupdir"
@@ -28,6 +29,21 @@ while true; do
   now="$(date +%s)"
   clients="$(find $clientconfdir -maxdepth 1 -type f -printf '%f\n')"
   clients_count="$(echo "$clients" | wc -l)"
+
+  # set defaults
+  stats_jobs_running=0
+  stats_new=0
+  stats_changed=0
+  stats_unchanged=0
+  stats_deleted=0
+  stats_total=0
+  stats_scanned=0
+  stats_time_taken=0
+  stats_warnings=0
+  stats_bytes_estimated=0
+  stats_bytes_in_backup=0
+  stats_bytes_received=0
+  
   
   for job in $clients; do
     if [ -r ${backupdir}/${job}/current/log.gz ]; then
@@ -55,36 +71,28 @@ while true; do
           last_run[$job]=$(date -d "$(echo "$line" | awk '{ print $3 " " $4 }')" +%s)
         fi
       done <<< "$(zcat ${backupdir}/${job}/current/log.gz | grep -v ': burp\[[0-9]*\] ')"
+    else
+      # there is no log file, so remove the job from the clients list
+      clients="${clients/${job}/}"
+    fi
+    # if a working directory exists; a job is running.
+    if [ -L "${backupdir}/${job}/working" ]; then
+      let "stats_jobs_running++"
     fi
   done
   
-  stats_new=0
-  stats_changed=0
-  stats_unchanged=0
-  stats_deleted=0
-  stats_total=0
-  stats_scanned=0
-  stats_time_taken=0
-  stats_warnings=0
-  stats_bytes_estimated=0
-  stats_bytes_in_backup=0
-  stats_bytes_received=0
-  
   for job in $clients; do
-    #if (( $now - ${last_run[$job]} < $interval )); then
-    if (( $now - ${last_run[$job]:-0} < ${stats_time_taken[$job]:-$interval} )); then
-      let "stats_new +=  ${stats_new[$job]}"
-      let "stats_changed += ${stats_changed[$job]}"
-      let "stats_unchanged += ${stats_unchanged[$job]}"
-      let "stats_deleted += ${stats_deleted[$job]}"
-      let "stats_total += ${stats_total[$job]}"
-      let "stats_scanned += ${stats_scanned[$job]}"
-      let "stats_time_taken += ${stats_time_taken[$job]}"
-      let "stats_warnings += ${stats_warnings[$job]}"
-      let "stats_bytes_estimated += ${stats_bytes_estimated[$job]}"
-      let "stats_bytes_in_backup += ${stats_bytes_in_backup[$job]}"
-      let "stats_bytes_received += ${stats_bytes_received[$job]}"
-    fi
+    let "stats_new +=  ${stats_new[$job]}"
+    let "stats_changed += ${stats_changed[$job]}"
+    let "stats_unchanged += ${stats_unchanged[$job]}"
+    let "stats_deleted += ${stats_deleted[$job]}"
+    let "stats_total += ${stats_total[$job]}"
+    let "stats_scanned += ${stats_scanned[$job]}"
+    let "stats_time_taken += ${stats_time_taken[$job]}"
+    let "stats_warnings += ${stats_warnings[$job]}"
+    let "stats_bytes_estimated += ${stats_bytes_estimated[$job]}"
+    let "stats_bytes_in_backup += ${stats_bytes_in_backup[$job]}"
+    let "stats_bytes_received += ${stats_bytes_received[$job]}"
   done
 
   echo "PUTVAL \"${HOSTNAME}/burp/files-files_new\" interval=${interval} N:${stats_new}"
@@ -99,7 +107,11 @@ while true; do
   echo "PUTVAL \"${HOSTNAME}/burp/bytes-bytes_in_backup\" interval=${interval} N:${stats_bytes_in_backup}"
   echo "PUTVAL \"${HOSTNAME}/burp/bytes-bytes_received\" interval=${interval} N:${stats_bytes_received}"
 
+  echo "PUTVAL \"${HOSTNAME}/burp/gauge-jobs_running\" interval=${interval} N:${stats_jobs_running}"
   echo "PUTVAL \"${HOSTNAME}/burp/users-clients\" interval=${interval} N:${clients_count}"
+  for job in $clients; do
+    echo "PUTVAL \"${HOSTNAME}/burp/duration-${job}\" interval=${interval} N:${stats_time_taken[$job]}"
+  done
 
   sleep ${interval}
 
